@@ -1,139 +1,83 @@
 import numpy as np
-from typing import List, Union
-from numpy.typing import NDArray
-
-# Type alias za pojednostavljenje zapisa
-Numeric = Union[float, int, np.number]
-NumericArray = Union[List[Numeric], NDArray[np.number]]
-
-
-class Node:
-    def forward(self, input: Numeric) -> Numeric:
-        # računa izlaz na temelju ulaza
-        pass
-
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        # računa gradijent po ulazu uz dani gradijent po izlazu
-        pass
+from base_nodes import Node
+from computational_nodes import Variable
+from numbers import Number
+from typing import Union
+from utils import reversed_topological_sort
 
 
-class Power(Node):
-    def __init__(self, exponent: Numeric):
-        self.exponent = exponent
+def compute_gradients(output_node: Node, topo_sorted_nodes: list[Node] = None):
+    """Computes gradients for each node in the computational graph."""
 
-    def forward(self, input: Numeric) -> Numeric:
-        self.input = input
-        return np.power(input, self.exponent)
+    if topo_sorted_nodes is None:
+        topo_sorted_nodes = reversed_topological_sort(output_node)
 
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        return output_grad * self.exponent * np.power(self.input, self.exponent - 1)
+    input_grads = {node: np.zeros_like(node()) for node in topo_sorted_nodes}
+    input_grads[output_node] = np.ones_like(output_node())  # Start gradient from output
 
+    param_grads = {}
 
-class Exp(Node):
-    def forward(self, input: Numeric) -> Numeric:
-        self.input = input
-        return np.exp(input)
+    for node in topo_sorted_nodes:
+        for input in node.inputs:
+            grad_input, grad_params = node.backward(input, input_grads[node])
+            input_grads[input] = input_grads[input] + grad_input
 
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        return output_grad * np.exp(self.input)
+            for param, grad in grad_params:
+                # Unique ID parameter is used as key
+                # since parameters are of np.ndarray type
+                param_id = id(param)
+                if param_id not in param_grads:
+                    param_grads[param_id] = (param, grad)
+                else:
+                    prev_grad = param_grads[param_id][1]
+                    param_grads[param_id] = (param, prev_grad + grad)
 
+        node.invalidate_cache()
 
-class Log(Node):
-    def forward(self, input: Numeric) -> Numeric:
-        assert input > 0
-        self.input = input
-        return np.log(self.input)
-
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        return output_grad * (1 / self.input)
-
-
-class AddConst(Node):
-    def __init__(self, const: Numeric):
-        self.const = const
-
-    def forward(self, input: Numeric) -> Numeric:
-        self.input = input
-        return input + self.const
-
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        return output_grad
+    param_grads_list = list(param_grads.values())
+    return input_grads, param_grads_list
 
 
-class MultiplyConst(Node):
-    def __init__(self, const: Numeric):
-        self.const = const
+def gradient_descent_input(
+    output_node: Node,
+    variable: Variable,
+    initial_x: Union[Number, np.ndarray],
+    param_niter: int = int(1e5),
+    param_delta: np.float64 = np.float64(1e-2),
+) -> Number:
+    """Performs gradient descent optimization on an input variable."""
 
-    def forward(self, input: Numeric) -> Numeric:
-        self.input = input
-        return input * self.const
-
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        return output_grad * self.const
-
-
-class PolynomialSum(Node):
-    def __init__(self, coeffs: NumericArray):
-        # coeffs[i] je koeficijent uz x^i
-        self.coeffs = np.array(coeffs)
-
-    def forward(self, input: Numeric) -> Numeric:
-        self.input = input
-        return np.sum(self.coeffs * input ** np.arange(len(self.coeffs)))
-
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        """
-        suma od i = 1 dok i <= n
-        c_i * i * (x ** (i - 1))
-        """
-
-        new_coeffs = np.array(self.coeffs[1:]) * np.arange(1, len(self.coeffs))
-        exp_input = self.input ** np.arange(len(self.coeffs) - 1)
-        return output_grad * np.sum(new_coeffs * exp_input)
-
-
-class FunctionChain:
-    def __init__(self, functions: List[Node]):
-        self.functions = functions
-
-    def forward(self, input: Numeric) -> Numeric:
-        result = input
-        for function in self.functions:
-            result = function.forward(result)
-        return result
-
-    def backward(self, output_grad: Numeric = 1) -> Numeric:
-        grad = output_grad
-        for function in self.functions:
-            grad = function.backward(grad)
-        return grad
-
-
-def gradient_descent(
-    function_chain: FunctionChain,
-    initial_x: Numeric,
-    param_niter: Numeric = 1e5,
-    param_delta: Numeric = 1e-2,
-) -> Numeric:
-    x = initial_x
+    variable.value = initial_x
+    topo_sorted_nodes = reversed_topological_sort(output_node)
     for _ in range(int(param_niter)):
-        function_chain.forward(x)
-        gradient = function_chain.backward()
+        # Forward pass
+        output_node()
 
-        x += -param_delta * gradient
-    return x
+        # Gradient computation
+        gradients = compute_gradients(output_node, topo_sorted_nodes)[0]
+        grad = gradients[variable]
+
+        variable.value = variable.value - param_delta * grad
+
+    return variable.value
 
 
-if __name__ == "__main__":
-    f1 = FunctionChain([AddConst(-1), Power(2), Exp(), AddConst(2), Log(), Log()])
-    f2 = FunctionChain([Power(2), AddConst(-1), Power(3)])
-    f3 = FunctionChain([Power(2), Exp(), AddConst(1), Log()])
+def gradient_descent_params(
+    output_node: Node,
+    param_niter: int = int(1e5),
+    param_delta: np.float64 = np.float64(1e-2),
+) -> None:
+    """Performs gradient descent optimization on parameters of the graph."""
 
-    f1_min = gradient_descent(f1, initial_x=9)
-    print("f1 ima min. u točki x =", np.round(f1_min, 4))
+    topo_sorted_nodes = reversed_topological_sort(output_node)
 
-    f2_min = gradient_descent(f2, initial_x=-0.8)
-    print("f2 ima min. u točki x =", np.round(f2_min, 4))
+    for _ in range(param_niter):
+        output_node()
 
-    f3_min = gradient_descent(f3, initial_x=4)
-    print("f3 ima min. u točki x =", np.round(f3_min, 4))
+        _, param_grads = compute_gradients(output_node, topo_sorted_nodes)
+
+        for param, grad in param_grads:
+            param -= param_delta * grad
+
+        for node in topo_sorted_nodes:
+            node.invalidate_cache()
