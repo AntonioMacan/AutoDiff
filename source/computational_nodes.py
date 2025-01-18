@@ -480,7 +480,7 @@ class SoftmaxCrossEntropyWithLogits(BinaryOperator):
         # to prevent numerical instability when computing the logarithm,
         # especially if any probability is zero.
         loss = -np.sum(labels * np.log(probs + 1e-9), axis=-1)
-        return loss
+        return np.mean(loss)
 
     def backward(
         self, wrt_node: Node, output_grad: Union[Number, np.ndarray]
@@ -488,7 +488,7 @@ class SoftmaxCrossEntropyWithLogits(BinaryOperator):
         output_grad = standardize_value(output_grad)
 
         logits = self.logits_node()
-        labels = self.logits_node()
+        labels = self.labels_node()
 
         stable_logits = logits - np.max(logits, axis=-1, keepdims=True)
         exps = np.exp(stable_logits)
@@ -496,9 +496,9 @@ class SoftmaxCrossEntropyWithLogits(BinaryOperator):
         probs = exps / exps_sum
 
         if wrt_node == self.logits_node:
-            grad_input = (probs - labels) * output_grad
+            grad_input = (probs - labels) * output_grad / probs.shape[0]
         elif wrt_node == self.labels_node:
-            grad_input = -np.log(probs + 1e-9) * output_grad
+            grad_input = -np.log(probs + 1e-9) * output_grad / probs.shape[0]
         else:
             grad_input = np.zeros_like(output_grad)
 
