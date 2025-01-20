@@ -42,6 +42,48 @@ class Variable(Node):
         return grad_input, []
 
 
+class Parameter(Variable):
+    """Represents a parameter node."""
+
+    def __init__(self, shape: tuple[Number, ...], name: str = "Parameter"):
+        self._shape = shape
+        super().__init__(value=np.zeros(shape), name=name)
+
+    @property
+    def shape(self) -> tuple[Number, ...]:
+        return self._shape
+    
+    @property
+    def value(self):
+        return self.forward()
+
+    @value.setter
+    def value(self, new_value):
+        standardized_value = standardize_value(new_value)
+        if self.shape != standardized_value.shape:
+            raise ValueError("Provided value's shape doesn't match parameter's shape.")
+        self.invalidate_cache()
+        self._value = standardized_value
+
+    def initialize_with_random(self):
+        """
+        Initialize parameter using the random method.
+        """
+        self.value = np.random.rand(*self.shape)
+
+    def initialize_with_zeros(self):
+        """
+        Initialize parameter with zeros.
+        """
+        self.value = np.zeros(self.shape)
+
+    def initialize_with_ones(self):
+        """
+        Initialize parameter with ones.
+        """
+        self.value = np.ones(self.shape)   
+
+
 class Add(BinaryOperator):
     """Represents the addition operation."""
 
@@ -349,8 +391,8 @@ class AffineTransform(UnaryOperator):
     def __init__(
         self,
         input_node: Node,
-        weights: np.ndarray,
-        bias: np.ndarray,
+        weights: Parameter,
+        bias: Parameter,
         name: str = "AffineTransform",
     ):
         super().__init__(input_node, name)
@@ -359,7 +401,7 @@ class AffineTransform(UnaryOperator):
 
     def _forward(self):
         x = self.input_node()
-        return np.matmul(x, self.weights) + self.bias
+        return np.matmul(x, self.weights.value.T) + self.bias.value.T
 
     def backward(
         self, wrt_node: Node, output_grad: Union[Number, np.ndarray]
@@ -369,11 +411,11 @@ class AffineTransform(UnaryOperator):
         if wrt_node != self.input_node:
             grad_input = 0
         else:
-            grad_input = np.matmul(output_grad, self.weights.T)
+            grad_input = np.matmul(output_grad, self.weights.value)
 
         x = self.input_node()
-        grad_weights = np.matmul(x.T, output_grad)
-        grad_bias = np.sum(output_grad, axis=0, keepdims=True)
+        grad_weights = np.matmul(x.T, output_grad).T
+        grad_bias = np.sum(output_grad, axis=0, keepdims=True).T
 
         grad_params = [(self.weights, grad_weights), (self.bias, grad_bias)]
         return grad_input, grad_params

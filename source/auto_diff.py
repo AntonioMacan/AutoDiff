@@ -23,14 +23,11 @@ def compute_gradients(output_node: Node, topo_sorted_nodes: list[Node] = None):
             input_grads[input] = input_grads[input] + grad_input
 
             for param, grad in grad_params:
-                # Unique ID parameter is used as key
-                # since parameters are of np.ndarray type
-                param_id = id(param)
-                if param_id not in param_grads:
-                    param_grads[param_id] = (param, grad)
+                if param not in param_grads:
+                    param_grads[param] = (param, grad)
                 else:
-                    prev_grad = param_grads[param_id][1]
-                    param_grads[param_id] = (param, prev_grad + grad)
+                    prev_grad = param_grads[param][1]
+                    param_grads[param] = (param, prev_grad + grad)
 
         node.invalidate_cache()
 
@@ -77,7 +74,7 @@ def gradient_descent_params(
         _, param_grads = compute_gradients(output_node, topo_sorted_nodes)
 
         for param, grad in param_grads:
-            param -= param_delta * grad
+            param.value = param.value - param_delta * grad
 
         for node in topo_sorted_nodes:
             node.invalidate_cache()

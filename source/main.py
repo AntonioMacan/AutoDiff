@@ -24,7 +24,7 @@ def train(
         
         # Update parametara
         for param, grad in param_grads:
-            param -= param_delta * grad
+            param.value = param.value - param_delta * grad
             
         return loss
     
@@ -56,14 +56,17 @@ def logreg_train(X, Y_):
     Y = data.class_to_onehot(Y_)
 
     # Parameter initialization
-    W = np.random.randn(C, D)
-    b = np.zeros((C, 1))
+    W = Parameter(shape = (C, D))
+    W.initialize_with_random()
+
+    b = Parameter(shape = (C, 1))
+    b.initialize_with_zeros()
 
     x = Variable(X, name="x")
     y = Variable(Y, name="y")
 
     # Mode: affine transformation + softmax
-    affine = AffineTransform(x, W.T, b.T, name="affine")
+    affine = AffineTransform(x, W, b, name="affine")
     scores = Softmax(affine, name="softmax")
 
     # Loss function: cross entropy
@@ -84,7 +87,7 @@ def logreg_classify(X, W, b):
     ''' 
 
     x = Variable(X, name="x")
-    scores = AffineTransform(x, W.T, b.T) 
+    scores = AffineTransform(x, W, b) 
     probs = Softmax(scores)()
   
     return probs
@@ -112,7 +115,7 @@ if __name__ == "__main__":
     # AP = data.eval_AP(Y_[np.max(probs, axis=1).argsort()])
     # print(accuracy, recall, precision, AP)
     print(accuracy, recall, precision, sep='\n')
-    breakpoint()
+    # breakpoint()
 
     # graph the decision surface
     decfun = logreg_decfun(W, b)
