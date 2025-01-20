@@ -1,23 +1,6 @@
 import numpy as np
-from computational_nodes import (
-    Variable,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    PowConst,
-    Exp,
-    Log,
-    AddConst,
-    MulConst,
-    MatMul,
-    AffineTransform,
-    Sigmoid,
-    ReLU,
-    Softmax,
-    SoftmaxCrossEntropyWithLogits,
-)
-from auto_diff import compute_gradients, gradient_descent_input, gradient_descent_params
+from computational_nodes import *
+from auto_diff import *
 
 
 def test_add():
@@ -233,35 +216,34 @@ def test_affinetransform():
     print("Testing AffineTransform")
 
     x = Variable(np.array([[1, 2, 3]]))
-    weights = np.array([[2, 1], [1, 2], [3, 3]])
-    bias = np.array([[1, 1]])
+    weights = Parameter(shape=(2, 3))
+    weights.value = np.array([[2, 1, 3], [1, 2, 3]])
+    bias = Parameter(shape=(2, 1))
+    bias.value = np.array([[1], [1]])
+    
     output = AffineTransform(x, weights, bias)
 
     expected_forward = np.array([[14, 15]])
     expected_grad_wrt_x = np.array([[3, 3, 6]])
-    expected_grad_wrt_weights = np.array([[1, 1], [2, 2], [3, 3]])
-    expected_grad_wrt_bias = np.array([[1, 1]])
+    expected_grad_wrt_weights = np.array([[1, 2, 3], [1, 2, 3]])
+    expected_grad_wrt_bias = np.array([[1], [1]])
 
     # Forward
-    # print(z())
     assert np.allclose(output(), expected_forward), "AffineTransform forward failed"
 
     # Backward
     input_grads, param_grads = compute_gradients(output)
 
-    # print(input_grads[x])
     assert np.allclose(
         input_grads[x], expected_grad_wrt_x
     ), "AffineTransform input grad w.r.t x failed"
 
     # Gradient w.r.t to weights
-    # print(param_grads[0][1])
     assert np.allclose(
         param_grads[0][1], expected_grad_wrt_weights
     ), "AffineTransform param grad w.r.t weights failed"
 
     # Gradient w.r.t to bias
-    # print(param_grads[1][1])
     assert np.allclose(
         param_grads[1][1], expected_grad_wrt_bias
     ), "AffineTransform param grad w.r.t bias failed"
@@ -394,8 +376,13 @@ def test_gradient_descent_params():
     # Define the model
     X_var = Variable(X)
     y_var = Variable(y)
-    W = np.random.randn(1, 1) * 0.1
-    b = np.zeros((1, 1))
+    
+    # Promjena u Parameter objekte
+    W = Parameter(shape=(1, 1))
+    W.value = np.random.randn(1, 1) * 0.1
+    
+    b = Parameter(shape=(1, 1))
+    b.value = np.zeros((1, 1))
 
     # Linear model: y = Wx + b
     affine = AffineTransform(X_var, W, b)
@@ -408,10 +395,8 @@ def test_gradient_descent_params():
     gradient_descent_params(loss, param_niter=1000, param_delta=0.0001)
 
     # Check if parameters are close to true values
-    learned_w = W.flatten()[0]
-    learned_b = b.flatten()[0]
-    # print(f"True w: {true_w}, Learned w: {learned_w}")
-    # print(f"True b: {true_b}, Learned b: {learned_b}")
+    learned_w = W.value.flatten()[0]
+    learned_b = b.value.flatten()[0]
 
     assert (
         np.abs(learned_w - true_w) < 0.5
