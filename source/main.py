@@ -74,25 +74,20 @@ def logreg_train(X, Y_):
     return W, b
 
 def logreg_classify(X, W, b):
-  '''
-  Argumenti
-      X:    podatci, np.array NxD
-      W, b: parametri logističke regresije, np.array CxD ; np.array Cx1
+    '''
+    Arguments
+        X:    data, np.array NxD
+        W, b: logistic regression parameters, np.array CxD ; np.array Cx1
 
-  Povratne vrijednosti
-      probs: vjerojatnosti svakog razreda za svaki podatak, np.array NxC
-  ''' 
+    Returns
+        probs: probabilities of each class for each data point, np.array NxC
+    ''' 
 
-  scores = np.dot(X, W.T) + b.ravel() # N x C
-  expscores = np.exp(scores - np.max(scores, axis=1, keepdims=True))  # N x C
+    x = Variable(X, name="x")
+    scores = AffineTransform(x, W.T, b.T) 
+    probs = Softmax(scores)()
   
-  # nazivnik softmaksa
-  sumexp = np.sum(expscores, axis=1, keepdims=True) # N x 1
-
-  # logaritmirane vjerojatnosti razreda
-  probs = expscores / sumexp  # N x C
-  
-  return probs
+    return probs
 
 def logreg_decfun(W, b):
   def classify(X):
@@ -117,7 +112,7 @@ if __name__ == "__main__":
     # AP = data.eval_AP(Y_[np.max(probs, axis=1).argsort()])
     # print(accuracy, recall, precision, AP)
     print(accuracy, recall, precision, sep='\n')
-    # breakpoint()
+    breakpoint()
 
     # graph the decision surface
     decfun = logreg_decfun(W, b)
