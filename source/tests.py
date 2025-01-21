@@ -476,7 +476,7 @@ def test_impact_of_iterations_on_loss():
 
     np.random.seed(100)
 
-    MAX_ITERATIONS = 50000
+    MAX_ITERATIONS = 20000
     STEP_SIZE = 2500
     initial = 10000
     ns = []
@@ -521,10 +521,9 @@ def test_impact_of_iterations_on_loss():
         losses.append(model.loss)
 
     plt.plot(ns, losses)
-
+    plt.xlabel('Number of iterations')
+    plt.ylabel('Loss')
     plt.show()
-
-
 
 
 

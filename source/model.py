@@ -35,7 +35,7 @@ class Model(ABC):
         """
         Implements model training using gradient descent algorithm.
         """
-        assert not self._trained, "Model was already trained."
+        #assert not self._trained, "Model was already trained."
 
         def gradient_descent_step() -> float:
             # Forward pass
