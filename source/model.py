@@ -7,7 +7,8 @@ import data
 
 class Model(ABC):
     def __init__(self):
-        pass
+        self._trained = False
+        self._loss = None
 
     @abstractmethod
     def train(
@@ -34,6 +35,7 @@ class Model(ABC):
         """
         Implements model training using gradient descent algorithm.
         """
+        assert not self._trained, "Model was already trained."
 
         def gradient_descent_step() -> float:
             # Forward pass
@@ -70,9 +72,18 @@ class Model(ABC):
         if verbose:
             print(f"Final loss: {loss}")
 
+        self._trained = True
+        self._loss = loss
+
     @abstractmethod
     def classify(self, X: np.ndarray) -> np.ndarray:
         pass
+
+    @property
+    def loss(self):
+        assert self._trained, "Model not trained."
+
+        return self._loss
 
 
 class LogisticRegression(Model, ABC):

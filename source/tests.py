@@ -1,6 +1,11 @@
 import numpy as np
 from computational_nodes import *
 from auto_diff import *
+from copy import deepcopy
+import time
+from model import LogisticRegression
+import data
+import matplotlib.pyplot as plt
 
 
 def test_add():
@@ -466,7 +471,65 @@ def test_phase1():
     test_phase1_function3()
 
 
+def test_impact_of_iterations_on_loss():
+    print("Testing gradient vs stochastic gradient")
+
+    np.random.seed(100)
+
+    MAX_ITERATIONS = 50000
+    STEP_SIZE = 2500
+    initial = 10000
+    ns = []
+    while initial <= MAX_ITERATIONS:
+        ns.append(initial)
+        initial += STEP_SIZE
+
+    X, Y_ = data.sample_gauss_2d(3, 100)
+
+    N, D = X.shape
+    C = np.max(Y_) + 1
+    Y = data.class_to_onehot(Y_)
+
+    # Parameter initialization
+    W = Parameter(shape=(C, D))
+    W.initialize_with_random()
+
+    b = Parameter(shape=(C, 1))
+    b.initialize_with_zeros()
+
+    x = Variable(X, name="x")
+    y = Variable(Y, name="y")
+
+    model = LogisticRegression(W, b)
+
+    # Mode: affine transformation + softmax
+    affine = AffineTransform(x, model.W, model.b, name="affine")
+    scores = Softmax(affine, name="softmax")
+
+    # Loss function: cross entropy
+    loss = SoftmaxCrossEntropyWithLogits(scores, y, name="loss")
+
+    losses = []
+
+    for n in ns:
+        print(f'Testing n={n}')
+        model = LogisticRegression(deepcopy(W), deepcopy(b))
+        # train the model
+        model.train(X, Y_, loss, param_niter=n, param_delta=0.0001)
+
+        # get the loss
+        losses.append(model.loss)
+
+    plt.plot(ns, losses)
+
+    plt.show()
+
+
+
+
+
 if __name__ == "__main__":
+    """
     test_add()
     test_sub()
     test_mul()
@@ -483,3 +546,5 @@ if __name__ == "__main__":
     test_gradient_descent_input()
     test_gradient_descent_params()
     test_phase1()
+    """
+    test_impact_of_iterations_on_loss()
