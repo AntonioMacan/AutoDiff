@@ -1,9 +1,11 @@
+from abc import ABC
+
 import numpy as np
 from numbers import Number
 from typing import Union
 
 
-class Node:
+class Node(ABC):
     """Base class for all computational nodes in the graph."""
 
     def __init__(self, inputs: list["Node"], name: str = "Node"):
