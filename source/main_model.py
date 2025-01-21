@@ -6,53 +6,6 @@ from computational_nodes import *
 from source.model import LogisticRegression
 
 
-def train(
-        x: Variable,  # Input Variable node
-        y: Variable,  # Target Variable čvor
-        loss_node: Node,  # Loss function node
-        X: np.ndarray,  # Input data
-        Y: np.ndarray,  # Target data
-        param_niter: int = 10000,
-        param_delta: float = 0.01,
-        batch_size: int = None,  # None means all data is used
-        verbose: bool = True,
-):
-    def gradient_descent_step() -> float:
-        # Forward pass
-        loss = loss_node()
-
-        # Backward pass
-        _, param_grads = compute_gradients(loss_node)
-
-        # Update parametara
-        for param, grad in param_grads:
-            param.value = param.value - param_delta * grad
-
-        return loss
-
-    N = len(X)
-
-    if batch_size is None:
-        x.value = X
-        y.value = Y
-
-    for i in range(param_niter):
-        if batch_size is None:
-            loss = gradient_descent_step()
-        else:
-            # Stohastic gradient descent
-            indices = np.random.choice(N, batch_size, replace=False)
-            x.value = X[indices]
-            y.value = Y[indices]
-            loss = gradient_descent_step()
-
-        if verbose and i % 100 == 0:
-            print(f"Iteration {i}, Loss: {loss}")
-
-    if verbose:
-        print(f"Final loss: {loss}")
-
-
 def logreg_train(X, Y_):
     N, D = X.shape
     C = np.max(Y_) + 1
