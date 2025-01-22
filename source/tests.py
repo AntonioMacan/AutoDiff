@@ -472,7 +472,7 @@ def test_phase1():
 
 
 def test_impact_of_iterations_on_loss():
-    print("Testing gradient vs stochastic gradient")
+    print("Testing impact of iterations on loss")
 
     np.random.seed(100)
 
@@ -526,6 +526,71 @@ def test_impact_of_iterations_on_loss():
     plt.show()
 
 
+def test_sgd_vs_gd():
+    print("Testing gradient vs stochastic gradient")
+
+    np.random.seed(100)
+
+    BATCH_SIZE = 32
+    MAX_ITERATIONS = 20000
+    STEP_SIZE = 5000
+    initial = 10000
+    ns = []
+    while initial <= MAX_ITERATIONS:
+        ns.append(initial)
+        initial += STEP_SIZE
+
+    X, Y_ = data.sample_gauss_2d(3, 1000)
+
+    N, D = X.shape
+    C = np.max(Y_) + 1
+    Y = data.class_to_onehot(Y_)
+
+    x = Variable(X, name="x")
+    y = Variable(Y, name="y")
+
+    W = Parameter(shape=(C, D))
+    W.initialize_with_random()
+    b = Parameter(shape=(C, 1))
+    b.initialize_with_zeros()
+
+    sgd = []
+    gd = []
+
+    for n in ns:
+        print(f'Testing n={n}')
+
+        model_gd = LogisticRegression(deepcopy(W), deepcopy(b))
+
+        affine = AffineTransform(x, model_gd.W, model_gd.b, name="affine")
+        scores = Softmax(affine, name="softmax")
+        loss = SoftmaxCrossEntropyWithLogits(scores, y, name="loss")
+
+        model_gd.train(X, Y_, loss, param_niter=n, param_delta=0.01)
+        gd.append(model_gd.loss)
+
+        model_sgd = LogisticRegression(deepcopy(W), deepcopy(b))
+
+        affine = AffineTransform(x, model_sgd.W, model_sgd.b, name="affine")
+        scores = Softmax(affine, name="softmax")
+        loss = SoftmaxCrossEntropyWithLogits(scores, y, name="loss")
+
+        model_sgd.train(X, Y_, loss, param_niter=n, param_delta=0.01, batch_size=BATCH_SIZE)
+
+        sgd.append(model_sgd.loss)
+
+    print(sgd, gd)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(ns, sgd, 'c-', label="Stochastic gradient descent", linewidth=3)
+    plt.plot(ns, gd, 'r--', label="Gradient descent", linewidth=2)
+    plt.legend(loc='upper right')
+    plt.xlabel('Number of iterations')
+    plt.ylabel('Loss (log scale)')
+    plt.title("Convergence: SGD vs GD")
+    plt.grid(True)
+    plt.show()
+
 
 if __name__ == "__main__":
     """
@@ -546,4 +611,5 @@ if __name__ == "__main__":
     test_gradient_descent_params()
     test_phase1()
     """
-    test_impact_of_iterations_on_loss()
+    #test_impact_of_iterations_on_loss()
+    test_sgd_vs_gd()

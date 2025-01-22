@@ -52,13 +52,10 @@ class Model(ABC):
 
         N = len(X)
 
-        if batch_size is None:
-            x.value = X
-            y.value = Y
-
-
         for i in range(param_niter):
             if batch_size is None:
+                x.value = X
+                y.value = Y
                 loss = gradient_descent_step()
             else:
                 idxs = np.random.choice(N, batch_size, replace=False)
